@@ -1,5 +1,6 @@
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use serde::Deserialize;
+use serde_json::json;
 use serde_yaml;
 use std::{
     fs,
@@ -11,7 +12,21 @@ use std::{
 #[derive(Parser)]
 #[command()]
 struct Args {
+    /// Path to the kustomization file or directory
     path: PathBuf,
+
+    /// Output format
+    #[arg(short, long, value_enum, default_value = "text")]
+    format: Option<Format>,
+}
+
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum Format {
+    /// One path per line
+    Text,
+
+    /// JSON
+    Json,
 }
 
 
@@ -59,9 +74,9 @@ fn deserialize(path: PathBuf) -> Vec<Kustomization> {
 }
 
 
-fn run(path: PathBuf, result: Vec<PathBuf>) {
+fn run(path: PathBuf, result: &mut Vec<String>) {
     if let Ok(canonical) = canonical_path(path.clone()) {
-        println!("{}", canonical.display());
+        result.push(format!("{}", canonical.display()));
 
         let resources: Vec<String> = deserialize(canonical.clone())
             .iter()
@@ -76,10 +91,7 @@ fn run(path: PathBuf, result: Vec<PathBuf>) {
                 .to_path_buf();
             next_path.push(PathBuf::from(r));
 
-            let mut branch = result.clone();
-
-            branch.push(canonical.clone());
-            run(next_path, branch);
+            run(next_path, result);
         };
     };
 }
@@ -87,6 +99,19 @@ fn run(path: PathBuf, result: Vec<PathBuf>) {
 
 fn main() {
     let args = Args::parse();
+    let mut result = Vec::new();
 
-    run(args.path, Vec::new());
+    run(args.path, &mut result);
+
+    match args.format {
+        Some(Format::Json) => {
+            let json = json!(result);
+            println!("{}", json.to_string());
+        },
+        _ => {
+            for r in result.iter() {
+                println!("{r}");
+            }
+        }
+    }
 }
