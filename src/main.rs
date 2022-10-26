@@ -60,26 +60,27 @@ fn deserialize(path: PathBuf) -> Vec<Kustomization> {
 
 
 fn run(path: PathBuf, result: Vec<PathBuf>) {
-    let canonical = canonical_path(path.clone()).unwrap();
-    println!("{}", canonical.display());
+    if let Ok(canonical) = canonical_path(path.clone()) {
+        println!("{}", canonical.display());
 
-    let resources: Vec<String> = deserialize(canonical.clone())
-        .iter()
-        .map(|doc| doc.resources.clone())
-        .flatten()
-        .collect();
+        let resources: Vec<String> = deserialize(canonical.clone())
+            .iter()
+            .map(|doc| doc.resources.clone())
+            .flatten()
+            .collect();
 
-    for r in resources {
-        let mut next_path = canonical
-            .parent()
-            .unwrap()
-            .to_path_buf();
-        next_path.push(PathBuf::from(r));
+        for r in resources {
+            let mut next_path = canonical
+                .parent()
+                .unwrap()
+                .to_path_buf();
+            next_path.push(PathBuf::from(r));
 
-        let mut branch = result.clone();
+            let mut branch = result.clone();
 
-        branch.push(canonical.clone());
-        run(next_path, branch);
+            branch.push(canonical.clone());
+            run(next_path, branch);
+        };
     };
 }
 
