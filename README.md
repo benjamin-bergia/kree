@@ -49,3 +49,23 @@ Options:
   "../kustomize/examples/multibases/staging/kustomization.yaml"
 ]
 ```
+```bash
+> kree -f json ../kustomize/examples/multibases ../kustomize/examples/wordpress | jq
+[
+  "../kustomize/examples/multibases/base/kustomization.yaml",
+  "../kustomize/examples/multibases/base/pod.yaml",
+  "../kustomize/examples/multibases/dev/kustomization.yaml",
+  "../kustomize/examples/multibases/kustomization.yaml",
+  "../kustomize/examples/multibases/production/kustomization.yaml",
+  "../kustomize/examples/multibases/staging/kustomization.yaml",
+  "../kustomize/examples/wordpress/kustomization.yaml",
+  "../kustomize/examples/wordpress/mysql/deployment.yaml",
+  "../kustomize/examples/wordpress/mysql/kustomization.yaml",
+  "../kustomize/examples/wordpress/mysql/secret.yaml",
+  "../kustomize/examples/wordpress/mysql/service.yaml",
+  "../kustomize/examples/wordpress/wordpress/deployment.yaml",
+  "../kustomize/examples/wordpress/wordpress/kustomization.yaml",
+  "../kustomize/examples/wordpress/wordpress/service.yaml"
+]
+```
+Note: the result is sorted and doesn't follow the arguments order.
