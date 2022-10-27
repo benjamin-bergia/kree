@@ -38,3 +38,14 @@ Options:
 ../kustomize/examples/multibases/production/kustomization.yaml
 ../kustomize/examples/multibases/staging/kustomization.yaml
 ```
+```bash
+> kree -f json ../kustomize/examples/multibases | jq
+[
+  "../kustomize/examples/multibases/base/kustomization.yaml",
+  "../kustomize/examples/multibases/base/pod.yaml",
+  "../kustomize/examples/multibases/dev/kustomization.yaml",
+  "../kustomize/examples/multibases/kustomization.yaml",
+  "../kustomize/examples/multibases/production/kustomization.yaml",
+  "../kustomize/examples/multibases/staging/kustomization.yaml"
+]
+```
