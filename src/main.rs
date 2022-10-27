@@ -1,8 +1,10 @@
 use clap::{Parser, ValueEnum};
+use relative_path::RelativePathBuf;
 use serde::Deserialize;
 use serde_json::json;
 use serde_yaml;
 use std::{
+    env::current_dir,
     fs,
     io,
     path::PathBuf,
@@ -13,7 +15,7 @@ use std::{
 #[command()]
 struct Args {
     /// Path to the kustomization file or directory
-    path: PathBuf,
+    path: RelativePathBuf,
 
     /// Output format
     #[arg(short, long, value_enum, default_value = "text")]
@@ -37,35 +39,33 @@ struct Kustomization {
 }
 
 
-fn canonical_path(path: PathBuf) -> io::Result<PathBuf> {
-    let mut canonical = path.canonicalize()?;
+fn normalize(root: &PathBuf, mut path: RelativePathBuf) -> RelativePathBuf {
+    path.normalize();
 
-    if canonical.is_file() {
-        return Ok(canonical);
+    if path.to_logical_path(&root).is_dir() {
+        path.push("kustomization.yml");
     }
 
-    if canonical.is_dir() {
-        canonical.push("kustomization.yml");
-        
-        if canonical.is_file() {
-            return Ok(canonical);
-        }
+    if path.to_logical_path(&root).is_file() {
+        return path;
+    } else {
+        path.set_extension("yaml");
     }
 
-    let error = io::Error::new(
-        io::ErrorKind::Other,
-        format!("Invalid path {}", canonical.display())
-    );
-    return Err(error);
+    if path.to_logical_path(&root).is_file() {
+        return path;
+    }
+
+    panic!("Unable to normalize path {path}");
 }
 
 
-fn read_file(path: PathBuf) -> io::Result<String> {
+fn read_file(path: &PathBuf) -> io::Result<String> {
     return fs::read_to_string(path);
 }
 
 
-fn deserialize(path: PathBuf) -> Vec<Kustomization> {
+fn deserialize(path: &PathBuf) -> Vec<Kustomization> {
     let content = read_file(path).unwrap();
     
     return serde_yaml::Deserializer::from_str(&content)
@@ -74,34 +74,37 @@ fn deserialize(path: PathBuf) -> Vec<Kustomization> {
 }
 
 
-fn run(path: PathBuf, result: &mut Vec<String>) {
-    if let Ok(canonical) = canonical_path(path.clone()) {
-        result.push(format!("{}", canonical.display()));
+fn run(root: &PathBuf, path: RelativePathBuf, result: &mut Vec<String>) {
+    let current_path = normalize(&root, path.clone());
 
-        let resources: Vec<String> = deserialize(canonical.clone())
-            .iter()
-            .map(|doc| doc.resources.clone())
-            .flatten()
-            .collect();
+    result.push(format!("{}", current_path));
 
-        for r in resources {
-            let mut next_path = canonical
-                .parent()
-                .unwrap()
-                .to_path_buf();
-            next_path.push(PathBuf::from(r));
+    let resources: Vec<String> = deserialize(&current_path.to_logical_path(root))
+        .iter()
+        .map(|doc| doc.resources.clone())
+        .flatten()
+        .collect();
 
-            run(next_path, result);
-        };
+    for r in resources {
+        let next_path = current_path
+            .parent()
+            .unwrap()
+            .join_normalized(r);
+
+        run(root, next_path, result);
     };
 }
 
 
 fn main() {
     let args = Args::parse();
+    let root = current_dir().unwrap();
     let mut result = Vec::new();
 
-    run(args.path, &mut result);
+    run(&root, args.path, &mut result);
+
+    result.sort();
+    result.dedup();
 
     match args.format {
         Some(Format::Json) => {
