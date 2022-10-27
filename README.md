@@ -2,8 +2,9 @@
 
 Kree let you list all the resources included by a specific kustomizaition file.
 
-Limitations:
-  - Remote resources are currently ignored and will no appear in the ouput.
+## Limitations
+
+  - Remote resources are currently ignored and will not appear in the ouput.
 
 ## Example
 
