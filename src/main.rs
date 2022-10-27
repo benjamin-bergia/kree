@@ -14,8 +14,8 @@ use std::{
 #[derive(Parser)]
 #[command()]
 struct Args {
-    /// Path to the kustomization file or directory
-    path: RelativePathBuf,
+    /// Path(s) to the kustomization file or directory
+    path: Vec<RelativePathBuf>,
 
     /// Output format
     #[arg(short, long, value_enum, default_value = "text")]
@@ -101,7 +101,9 @@ fn main() {
     let root = current_dir().unwrap();
     let mut result = Vec::new();
 
-    run(&root, args.path, &mut result);
+    for p in args.path.iter() {
+        run(&root, p.clone(), &mut result);
+    }
 
     result.sort();
     result.dedup();
