@@ -1,5 +1,4 @@
 use clap::{Parser, ValueEnum};
-use relative_path::RelativePathBuf;
 use serde::Deserialize;
 use serde_json::json;
 use serde_yaml;
@@ -15,7 +14,7 @@ use std::{
 #[command()]
 struct Args {
     /// Path(s) to the kustomization file or directory
-    path: Vec<RelativePathBuf>,
+    path: Vec<PathBuf>,
 
     /// Output format
     #[arg(short, long, value_enum, default_value = "text")]
@@ -39,24 +38,24 @@ struct Kustomization {
 }
 
 
-fn normalize(root: &PathBuf, mut path: RelativePathBuf) -> RelativePathBuf {
-    path.normalize();
+fn normalize(path: PathBuf) -> PathBuf {
+    let mut canonical = path.canonicalize().unwrap();
 
-    if path.to_logical_path(&root).is_dir() {
-        path.push("kustomization.yml");
+    if canonical.is_dir() {
+        canonical.push("kustomization.yml");
     }
 
-    if path.to_logical_path(&root).is_file() {
-        return path;
+    if canonical.is_file() {
+        return canonical;
     } else {
-        path.set_extension("yaml");
+        canonical.set_extension("yaml");
     }
 
-    if path.to_logical_path(&root).is_file() {
-        return path;
+    if canonical.is_file() {
+        return canonical;
     }
 
-    panic!("Unable to normalize path {path}");
+    panic!("Unable to normalize path {}", path.display());
 }
 
 
@@ -74,12 +73,12 @@ fn deserialize(path: &PathBuf) -> Vec<Kustomization> {
 }
 
 
-fn run(root: &PathBuf, path: RelativePathBuf, result: &mut Vec<String>) {
-    let current_path = normalize(&root, path.clone());
+fn run(path: PathBuf, result: &mut Vec<String>) {
+    let current_path = normalize(path.clone());
 
-    result.push(format!("{}", current_path));
+    result.push(format!("{}", current_path.display()));
 
-    let resources: Vec<String> = deserialize(&current_path.to_logical_path(root))
+    let resources: Vec<String> = deserialize(&current_path)
         .iter()
         .map(|doc| doc.resources.clone())
         .flatten()
@@ -89,9 +88,9 @@ fn run(root: &PathBuf, path: RelativePathBuf, result: &mut Vec<String>) {
         let next_path = current_path
             .parent()
             .unwrap()
-            .join_normalized(r);
+            .join(r);
 
-        run(root, next_path, result);
+        run(next_path, result);
     };
 }
 
@@ -102,7 +101,12 @@ fn main() {
     let mut result = Vec::new();
 
     for p in args.path.iter() {
-        run(&root, p.clone(), &mut result);
+        // Merge the current path with the input path.
+        // If the input path is absolute it will overwrite
+        // the current path.
+        let mut path = root.clone();
+        path.push(p);
+        run(path, &mut result);
     }
 
     result.sort();
