@@ -73,6 +73,23 @@ fn deserialize(path: &PathBuf) -> Vec<Kustomization> {
 }
 
 
+fn unsupported(resource: &str) -> bool {
+    let remote = [
+        "git://",
+        "http://",
+        "https://",
+        "github.com",
+    ];
+
+    for r in remote {
+        if resource.starts_with(r) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 fn run(path: PathBuf, result: &mut Vec<String>) {
     let current_path = normalize(path.clone());
 
@@ -85,6 +102,10 @@ fn run(path: PathBuf, result: &mut Vec<String>) {
         .collect();
 
     for r in resources {
+        if unsupported(&r) {
+            continue;
+        };
+
         let next_path = current_path
             .parent()
             .unwrap()
