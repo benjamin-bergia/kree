@@ -8,6 +8,7 @@ use std::{
     io,
     path::PathBuf,
 };
+use log::debug;
 
 
 #[derive(Parser)]
@@ -31,10 +32,19 @@ enum Format {
 }
 
 
-#[derive(Deserialize, PartialEq, Debug)]
+#[derive(Default, Deserialize, PartialEq, Debug)]
+#[serde(default, rename_all = "camelCase")]
 struct Kustomization {
-    #[serde(default)]
     resources: Vec<String>,
+    config_map_generator: Vec<ConfigMapGenerator>,
+}
+
+
+#[derive(Clone, Default, Deserialize, PartialEq, Debug)]
+#[serde(default)]
+struct ConfigMapGenerator {
+    name: String,
+    files: Vec<String>,
 }
 
 
@@ -91,11 +101,33 @@ fn unsupported(resource: &str) -> bool {
 }
 
 fn run(path: PathBuf, result: &mut Vec<String>) {
+    debug!("{:#?}", path.display());
+
     let current_path = normalize(path.clone());
+    debug!("{:#?}", current_path.display());
 
     result.push(format!("{}", current_path.display()));
 
-    let resources: Vec<String> = deserialize(&current_path)
+    let doc = deserialize(&current_path);
+    debug!("{:#?}", doc);
+
+    doc
+        .iter()
+        .map(|doc| doc.config_map_generator.clone())
+        .flatten()
+        .map(|c| c.files)
+        .flatten()
+        .for_each(|f| {
+            let file = current_path
+                .parent()
+                .unwrap()
+                .join(f);
+
+            result.push(format!("{}", file.display()));
+        });
+
+
+    let resources: Vec<String> = doc
         .iter()
         .map(|doc| doc.resources.clone())
         .flatten()
@@ -117,6 +149,8 @@ fn run(path: PathBuf, result: &mut Vec<String>) {
 
 
 fn main() {
+    env_logger::init();
+
     let args = Args::parse();
     let root = current_dir().unwrap();
     let mut result = Vec::new();
